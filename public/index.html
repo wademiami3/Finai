@@ -843,8 +843,12 @@ const dataProvider = {
       // A build served without the serverless function (a bare static
       // host, or the file opened directly) returns the HTML page here
       // rather than JSON. Say that plainly instead of "network error".
+      // Distinguish "the function isn't there" from "the function ran and
+      // said no". A missing backend returns the HTML page, not JSON; the
+      // API's own 404 for an unknown ticker IS JSON and must be passed
+      // through with its real message.
       const ct = r.headers.get("content-type") || "";
-      if(r.status === 404 || !ct.includes("json"))
+      if(!ct.includes("json"))
         return {ok:false, code:"NO_BACKEND",
           error:`"${ticker}" is not one of the ${Object.keys(DEMO).length} curated companies, and this build has no data service attached — so live SEC lookup is unavailable here. Deploy with the /api/company function to search any SEC filer.`};
       const j = await r.json();
@@ -2039,16 +2043,20 @@ function homeHTML(){
 }
 
 function submitTicker(){
-  const v = ($("#heroInput")?.value || "").trim().toUpperCase();
+  const raw = ($("#heroInput")?.value || "").trim().toUpperCase();
+  const v = raw.replace(/[^A-Z.\-]/g, "");
   const err = $("#heroErr");
   if(!v){ if(err){ err.className = "alert warn"; err.textContent = "Enter a ticker symbol to begin."; } return; }
-  if(!DEMO[v]){
-    if(err){
-      err.className = "alert warn";
-      err.innerHTML = `<div><b>No coverage for "${esc(v)}".</b> The demo dataset covers ${dataProvider.listTickers().join(", ")}. Connecting a live data provider removes this limit — see the data-architecture note in the README.</div>`;
-    }
+  if(v.length > 8){
+    if(err){ err.className = "alert warn"; err.textContent = `"${esc(raw)}" is not a ticker symbol. Enter up to 8 letters, e.g. ORCL.`; }
     return;
   }
+  /* Do NOT pre-filter against the curated set here. Anything that looks
+     like a ticker is routed; loadCompany decides between the curated
+     dataset and the live EDGAR lookup, and renders a proper error view
+     if neither has it. Filtering here is what made live search
+     unreachable. */
+  if(err) err.className = "hide";
   go("#/company/" + v);
 }
 
@@ -2073,9 +2081,16 @@ function errorHTML(){
     <div class="subtle-label" style="color:var(--warn)">${esc(e.code || "ERROR")}</div>
     <h3 style="margin:10px 0 8px;font-size:17px">${esc(e.error || "Something went wrong.")}</h3>
     <p class="dim" style="font-size:13px;line-height:1.65;margin:0 0 18px">
-      The demo dataset covers ${dataProvider.listTickers().join(", ")}. Live coverage requires a server-side data provider with an API key, which a static build deliberately cannot hold.
+      ${e.code === "NO_BACKEND"
+        ? `This build is running without the data service, so only the curated companies are available: ${dataProvider.listTickers().join(", ")}.`
+        : e.code === "INSUFFICIENT_DATA" || e.code === "NO_FACTS"
+        ? `FINAI builds its models from XBRL data in annual reports filed with the SEC. Companies without at least two years of it — recent IPOs, IFRS reporters, foreign private issuers filing 20-F — cannot be modelled here.`
+        : `FINAI covers the ${dataProvider.listTickers().length} curated companies (${dataProvider.listTickers().join(", ")}) plus any US-listed company that files with the SEC. Check the symbol and try again.`}
     </p>
-    <button class="btn primary" onclick="go('#/')">← Back to research</button>
+    <div class="row gap12">
+      <button class="btn primary" onclick="go('#/')">← Back to research</button>
+      ${dataProvider.listTickers().slice(0,4).map(t => `<button class="chip" onclick="go('#/company/${t}')">${t}</button>`).join("")}
+    </div>
   </div></div>`;
 }
 
@@ -3410,9 +3425,9 @@ function mountAll(){
   const ns = $("#navSearch");
   if(ns) ns.addEventListener("keydown", e => {
     if(e.key === "Enter"){
-      const v = ns.value.trim().toUpperCase();
-      if(DEMO[v]) go("#/company/" + v);
-      else { ns.value = ""; ns.placeholder = "Not covered — try " + dataProvider.listTickers()[0]; }
+      const v = ns.value.trim().toUpperCase().replace(/[^A-Z.\-]/g, "");
+      if(v && v.length <= 8){ ns.value = ""; go("#/company/" + v); }
+      else { ns.value = ""; ns.placeholder = "Enter a ticker, e.g. ORCL"; }
     }
   });
   const hi = $("#heroInput");

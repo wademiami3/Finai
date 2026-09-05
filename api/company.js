@@ -15,7 +15,7 @@
    the client.
    ================================================================ */
 
-const { mapCompany } = require("../lib/xbrl.js");
+const { mapCompany } = require("./_lib/xbrl.js");
 
 // EDGAR asks that automated callers identify themselves with a contact
 // address. Set SEC_USER_AGENT in your environment; the fallback is only
@@ -32,7 +32,10 @@ const TTL = 1000 * 60 * 60 * 6;      // 6 hours — filings change rarely
 const QUOTE_TTL = 1000 * 60 * 5;     // 5 minutes for prices
 
 async function secFetch(url){
-  const r = await fetch(url, {headers:{"User-Agent": UA, "Accept-Encoding":"gzip, deflate"}});
+  // Only User-Agent is set. Do NOT set Accept-Encoding by hand: undici
+  // handles compression automatically, and overriding it can leave the
+  // body compressed so json() throws.
+  const r = await fetch(url, {headers:{"User-Agent": UA}});
   if(!r.ok){
     const e = new Error(`SEC responded ${r.status}`);
     e.status = r.status;
@@ -81,7 +84,14 @@ async function getQuote(ticker){
 }
 
 module.exports = async (req, res) => {
-  const ticker = String((req.query?.ticker) || "").toUpperCase().trim();
+  // req.query is provided by Vercel's Node runtime, but parse the URL as
+  // a fallback so this also works under `vercel dev`, Netlify functions
+  // and a plain Node server.
+  let raw = req.query?.ticker;
+  if(raw == null){
+    try{ raw = new URL(req.url, "http://localhost").searchParams.get("ticker"); }catch{ raw = null; }
+  }
+  const ticker = String(raw || "").toUpperCase().trim();
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Cache-Control", "public, max-age=300, s-maxage=3600");
 

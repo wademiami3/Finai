@@ -59,6 +59,32 @@ Deploy. You get a live URL in about a minute.
 - Search `ORCL` or `WMT` or any US-listed ticker → loads from EDGAR, badged SEC EDGAR
 - Search `ZZZZ` → clean "no SEC filer found" error
 
+## Troubleshooting
+
+Visit **`/api/health`** on your deployed site. It reports, in one response, whether the function is running, whether your environment variables reached it, and whether EDGAR and the quote provider are reachable:
+
+```json
+{
+  "ok": true,
+  "env": { "SEC_USER_AGENT": "set", "FINNHUB_API_KEY": "set" },
+  "checks": {
+    "userAgentFormat": "ok",
+    "edgar": "ok",
+    "edgarSample": "resolved CIK 320193 → Apple Inc.",
+    "tickerMap": "ok — 12000+ filers indexed, ORCL → CIK 1341439",
+    "quotes": "ok — AAPL quote 232.5"
+  }
+}
+```
+
+| What you see | What it means |
+|---|---|
+| 404 on `/api/health` | Vercel isn't building the functions. Check `api/` is at the repo root, not nested inside another folder. |
+| `SEC_USER_AGENT: MISSING` | The variable didn't reach the function. Add it in Vercel → Settings → Environment Variables, then **redeploy** — env changes don't apply to existing deployments. |
+| `edgar: FAILED — SEC returned 403` | EDGAR rejected your User-Agent. It must contain a real contact email. |
+| `quotes: FAILED` | Bad or rate-limited Finnhub key. Fundamentals still work; prices show as em dashes. |
+| Health is fine but search still fails | Hard-refresh the page (Cmd/Ctrl+Shift+R) — the old HTML is cached. |
+
 ## Running locally
 
 ```bash

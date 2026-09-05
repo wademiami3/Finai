@@ -1,4 +1,7 @@
 {
-  "functions": { "api/company.js": { "maxDuration": 15 } },
-  "rewrites": [{ "source": "/", "destination": "/index.html" }]
+  "outputDirectory": "public",
+  "functions": {
+    "api/company.js": { "maxDuration": 30, "memory": 1024 },
+    "api/health.js": { "maxDuration": 15 }
+  }
 }

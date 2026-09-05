@@ -2,7 +2,7 @@
    the fixture reproduces the exact shape data.sec.gov returns, including
    the awkward cases that break naive mappers. */
 const assert = require("assert");
-const { mapCompany, isFinancialSIC, deriveAssumptions } = require("../lib/xbrl.js");
+const { mapCompany, isFinancialSIC, deriveAssumptions } = require("../api/_lib/xbrl.js");
 const { facts, submissions } = require("./fixture.js");
 
 let pass = 0;
