@@ -1,0 +1,11 @@
+{
+  "name": "finai",
+  "version": "1.0.0",
+  "description": "FINAI — AI Investment Committee Copilot",
+  "private": true,
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "dev": "vercel dev",
+    "test": "node test/mapper.test.js"
+  }
+}
